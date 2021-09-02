@@ -9,7 +9,7 @@ pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn s
         match line {
             Err(err) => panic!("cannot read line: {}", err),
             Ok(line) => {
-                let ip: String = line.split(" ").next().unwrap().into();
+                let ip: String = line.split(' ').next().unwrap().into();
                 all_counter += 1;
                 all_ip_pool.insert(ip.clone());
                 if line.contains("GET / HTTP") && line.contains("Mozilla") {
