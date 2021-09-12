@@ -9,10 +9,12 @@ use std::fs::File;
 use std::io::{self, BufRead};
 mod nginx;
 mod rsyncd;
+mod nginx_json;
 
 enum FileType {
     Nginx,
-    Rsyncd
+    Rsyncd,
+    NginxJson
 }
 
 fn main() {
@@ -24,6 +26,7 @@ fn main() {
             match args[1].as_str() {
                 "nginx" => file_type = FileType::Nginx,
                 "rsyncd" => file_type = FileType::Rsyncd,
+                "nginx_json" => file_type = FileType::NginxJson,
                 _ => panic!("Wrong file type!")
             }
             if args.len() == 3 {
@@ -33,7 +36,7 @@ fn main() {
             }
         }
         _ => {
-            println!("Usage: {} [nginx|rsyncd] [filename]", args[0]);
+            println!("Usage: {} [nginx|rsyncd|nginx_json] [filename]", args[0]);
             return
         }
     }
@@ -49,5 +52,6 @@ fn main() {
     match file_type {
         FileType::Nginx => nginx::process(iterator),
         FileType::Rsyncd => rsyncd::process(iterator),
+        FileType::NginxJson => nginx_json::process(iterator),
     }
 }
