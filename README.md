@@ -9,7 +9,7 @@
 
 ## Changes
 
-2021/09/12: 添加根据 IP 和 UA 查看 access_json.log 流量的功能。
+2021/09/12: 添加根据 IP 和 UA 查看 access_json.log 流量的功能。(Example: `cargo run --release -- nginx_json /path/to/access_json.log-date > output.txt`)
 
 ## 还可以做的改进
 
