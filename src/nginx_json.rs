@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Serialize, Deserialize)]
 struct Log {
@@ -35,7 +37,15 @@ pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn s
     let mut ip_map: HashMap<String, u64> = HashMap::new(); // By /24 (IPv4) or /48 (IPv6)
     let mut ua_map: HashMap<String, u64> = HashMap::new();
     let server_ip = "202.141.160.110";
+
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term)).unwrap();
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term)).unwrap();
     for line in iterator {
+        if term.load(Ordering::Relaxed) {
+            println!("Exiting early as SIGTERM or SIGINT is received...");
+            break
+        }
         match line {
             Err(err) => panic!("cannot read line: {}", err),
             Ok(line) => {
