@@ -4,54 +4,43 @@
 #[macro_use]
 extern crate lazy_static;
 
-use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
-mod nginx;
-mod rsyncd;
-mod nginx_json;
+mod processor {
+    pub mod nginx_json;
+    pub mod nginx;
+    pub mod rsyncd;
+}
+mod r#struct;
+use r#struct::Cli;
+use structopt::StructOpt;
 
 enum FileType {
     Nginx,
     Rsyncd,
-    NginxJson
+    NginxJson,
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let filename: Option<&String>;
-    let file_type: FileType;
-    match args.len() {
-        2 | 3 => {
-            match args[1].as_str() {
-                "nginx" => file_type = FileType::Nginx,
-                "rsyncd" => file_type = FileType::Rsyncd,
-                "nginx_json" => file_type = FileType::NginxJson,
-                _ => panic!("Wrong file type!")
-            }
-            if args.len() == 3 {
-                filename = Some(&args[2]);
-            } else {
-                filename = None;
-            }
-        }
-        _ => {
-            println!("Usage: {} [nginx|rsyncd|nginx_json] [filename]", args[0]);
-            return
-        }
-    }
-    let file: Box<dyn std::io::Read + 'static> = match filename {
-        Some(filename) => match File::open(filename) {
-            Err(err) => panic!("cannot open {}: {}", filename, err),
-            Ok(file) => Box::new(file)
+    let args = Cli::from_args();
+    let file_type: FileType = match args.r#type.as_str() {
+        "nginx" => FileType::Nginx,
+        "rsyncd" => FileType::Rsyncd,
+        "nginx_json" => FileType::NginxJson,
+        _ => panic!("Wrong file type!"),
+    };
+    let file: Box<dyn std::io::Read + 'static> = match args.filename {
+        Some(ref filename) => match File::open(&filename) {
+            Err(err) => panic!("cannot open {}: {}", filename.display(), err),
+            Ok(file) => Box::new(file),
         },
-        None => Box::new(io::stdin())
+        None => Box::new(io::stdin()),
     };
     let reader = io::BufReader::new(file);
     let iterator = reader.lines();
     match file_type {
-        FileType::Nginx => nginx::process(iterator),
-        FileType::Rsyncd => rsyncd::process(iterator),
-        FileType::NginxJson => nginx_json::process(iterator),
+        FileType::Nginx => processor::nginx::process(iterator),
+        FileType::Rsyncd => processor::rsyncd::process(iterator),
+        FileType::NginxJson => processor::nginx_json::process(iterator, args),
     }
 }

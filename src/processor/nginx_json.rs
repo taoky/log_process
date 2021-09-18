@@ -1,10 +1,11 @@
+use crate::r#struct::Cli;
 use cidr::{Ipv4Inet, Ipv6Inet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize)]
 struct Log {
@@ -26,17 +27,20 @@ fn print_map_by_size(map: HashMap<String, u64>) {
     vec.sort_by(|a, b| b.1.cmp(a.1));
     for item in vec {
         if item.1 < &(1024 * 1024 * 1024) {
-            return
+            return;
         }
         println!("{} {}", item.0, item.1);
     }
 }
 
-pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn std::io::Read>>>) {
+pub fn process(
+    iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn std::io::Read>>>,
+    args: Cli,
+) {
     let mut total_size = 0;
     let mut ip_map: HashMap<String, u64> = HashMap::new(); // By /24 (IPv4) or /48 (IPv6)
     let mut ua_map: HashMap<String, u64> = HashMap::new();
-    let server_ip = "202.141.160.110";
+    let server_ip = args.server;
 
     let term = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term)).unwrap();
@@ -44,7 +48,7 @@ pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn s
     for line in iterator {
         if term.load(Ordering::Relaxed) {
             println!("Exiting early as SIGTERM or SIGINT is received...");
-            break
+            break;
         }
         match line {
             Err(err) => panic!("cannot read line: {}", err),
@@ -52,8 +56,10 @@ pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn s
                 // Here we replace "\x" to empty string
                 // as serde_json does not like this escape sequence and complains a lot.
                 let item: Log = serde_json::from_str(&*(line.replace("\\x", ""))).unwrap();
-                if item.serverip != server_ip {
-                    continue;
+                if let Some(ref server_ip) = server_ip {
+                    if server_ip != &item.serverip {
+                        continue;
+                    }
                 }
                 total_size += item.size;
                 let client = IpAddr::from_str(&item.clientip).unwrap();
@@ -80,7 +86,10 @@ pub fn process(iterator: std::io::Lines<std::io::BufReader<std::boxed::Box<dyn s
             }
         }
     }
-    println!("All requests of IP {}:", server_ip);
+    match server_ip {
+        Some(server_ip) => println!("All requests of IP {}:", server_ip),
+        None => println!("All requests:"),
+    };
     println!("Total Size: {}", total_size);
     println!("IP:");
     print_map_by_size(ip_map);
